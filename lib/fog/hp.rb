@@ -13,8 +13,13 @@ module Fog
             data = nil
             message = nil
           else
-            data = Fog::JSON.decode(error.response.body)
-            message = data['message']
+            begin
+              data = Fog::JSON.decode(error.response.body)
+              message = data['message']
+            rescue MultiJson::DecodeError
+              data = error.response.body    #### the body is not in JSON format so just return it as it is
+              message = data
+            end
           end
 
           new_error = super(error, message)
@@ -26,6 +31,7 @@ module Fog
       class InternalServerError < ServiceError; end
       class Conflict < ServiceError; end
       class NotFound < ServiceError; end
+      class Forbidden < ServiceError; end
       class ServiceUnavailable < ServiceError; end
 
       class BadRequest < ServiceError
@@ -107,7 +113,7 @@ module Fog
       @hp_secret_key = options[:hp_secret_key]
       @hp_tenant_id  = options[:hp_tenant_id]
       @hp_service_type  = options[:hp_service_type]
-      @hp_avl_zone   = options[:hp_avl_zone] || :az1
+      @hp_avl_zone   = options[:hp_avl_zone] || 'az-1.region-a.geo-1'
 
       ### Decide which auth style to use
       unless (@hp_use_upass_auth_style)
@@ -177,19 +183,22 @@ module Fog
     private
 
     def self.get_endpoint_from_catalog(service_catalog, service_type, avl_zone)
-      if service_catalog
-        service_item = service_catalog.select {|s| s["type"] == service_type}.first
-        if service_item and service_item['endpoints'] and
-          if avl_zone == :az1
-            endpoint_url = service_item['endpoints'][0]['publicURL'] if service_item['endpoints'][0]
-          elsif avl_zone == :az2
-            endpoint_url = service_item['endpoints'][1]['publicURL'] if service_item['endpoints'][1]
-          end
-          raise "Unable to retrieve endpoint service url from service catalog." if endpoint_url.nil?
-          return endpoint_url
+      raise "Unable to parse service catalog." unless service_catalog
+      service_item = service_catalog.detect do |s|
+        # 'Name' is unique instead of 'Type'
+        s["name"] == service_type
+      end
+      # fallback to type, as not everything has been switched to using name
+      service_item ||= service_catalog.detect do |s|
+        s["type"] == service_type
+      end
+      if service_item and service_item['endpoints']
+        endpoint = service_item['endpoints'].detect do |ep|
+          ep['region'] == avl_zone
         end
-      else
-        raise "Unable to parse service catalog."
+        endpoint_url = endpoint['publicURL'] if endpoint
+        raise "Unable to retrieve endpoint service url for availability zone '#{avl_zone}' from service catalog. " if endpoint_url.nil?
+        return endpoint_url
       end
     end
 

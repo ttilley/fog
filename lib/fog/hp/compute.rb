@@ -5,8 +5,8 @@ module Fog
   module Compute
     class HP < Fog::Service
 
-      requires    :hp_secret_key, :hp_account_id, :hp_tenant_id
-      recognizes  :hp_auth_uri, :hp_servicenet, :persistent, :connection_options, :hp_use_upass_auth_style, :hp_auth_version, :hp_avl_zone
+      requires    :hp_secret_key, :hp_account_id, :hp_tenant_id, :hp_avl_zone
+      recognizes  :hp_auth_uri, :hp_servicenet, :persistent, :connection_options, :hp_use_upass_auth_style, :hp_auth_version
 
       secrets     :hp_secret_key
 
@@ -114,7 +114,7 @@ module Fog
           ### Set an option to use the style of authentication desired; :v1 or :v2 (default)
           auth_version = options[:hp_auth_version] || :v2
           ### Pass the service type for compute via the options hash
-          options[:hp_service_type] = "compute"
+          options[:hp_service_type] = "Compute"
           @hp_tenant_id = options[:hp_tenant_id]
 
           ### Make the authentication call

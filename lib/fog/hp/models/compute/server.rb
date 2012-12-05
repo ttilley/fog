@@ -16,14 +16,15 @@ module Fog
         attribute :name
         attribute :personality
         attribute :progress
-        attribute :accessIPv4
-        attribute :accessIPv6
         attribute :state,       :aliases => 'status'
         attribute :created_at,  :aliases => 'created'
         attribute :updated_at,  :aliases => 'updated'
         attribute :tenant_id
         attribute :user_id
         attribute :key_name
+        attribute :security_groups
+        attribute :config_drive
+        attribute :user_data
         # these are implemented as methods
         attribute :image_id
         attribute :flavor_id
@@ -38,6 +39,8 @@ module Fog
           self.security_groups = attributes.delete(:security_groups)
           self.min_count = attributes.delete(:min_count)
           self.max_count = attributes.delete(:max_count)
+          self.block_device_mapping = attributes.delete(:block_device_mapping)
+          @connection = attributes[:connection]
           super
         end
 
@@ -111,10 +114,14 @@ module Fog
           @security_groups = new_security_groups
         end
 
-        def security_groups   
+        def block_device_mapping=(new_block_device_mapping)
+          @block_device_mapping = new_block_device_mapping
+        end
+
+        def security_groups
           @security_groups
         end
-        
+
         def ready?
           self.state == 'ACTIVE'
         end
@@ -164,14 +171,15 @@ module Fog
           raise Fog::Errors::Error.new('Resaving an existing object may create a duplicate') if identity
           requires :flavor_id, :image_id, :name
           options = {
-            'metadata'    => metadata,
-            'personality' => personality,
-            'accessIPv4'  => accessIPv4,
-            'accessIPv6'  => accessIPv6,
-            'min_count'   => @min_count,
-            'max_count'   => @max_count,
-            'key_name'    => key_name,
-            'security_groups' => @security_groups
+            'metadata'              => metadata,
+            'personality'           => personality,
+            'min_count'             => @min_count,
+            'max_count'             => @max_count,
+            'key_name'              => key_name,
+            'security_groups'       => security_groups,
+            'config_drive'          => config_drive,
+            'block_device_mapping'  => @block_device_mapping,
+            'user_data'             => user_data
           }
           options = options.reject {|key, value| value.nil?}
           data = connection.create_server(name, flavor_id, image_id, options)
